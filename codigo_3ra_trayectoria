@@ -1,0 +1,144 @@
+clear all
+close all
+clc
+
+tf=9;              
+ts=0.1;            
+t=0:ts:tf;        
+N= length(t);      
+
+R = 0.05;         
+L = 0.17;          
+
+x1= zeros (1, N+1);       
+y1= zeros (1, N+1);      
+phi= zeros (1, N+1);      
+
+x1(1)=0;  
+y1(1)=0;  
+phi(1)=0; 
+
+hx= zeros (1, N+1);       
+hy= zeros (1, N+1);       
+hx(1)= x1(1);       
+hy(1)= y1(1);       
+
+v = [2*ones(1,10)    0*ones(1,10)    1.5*ones(1,10)       0*ones(1,10)    2*ones(1,10)               0*ones(1,10)    2*ones(1,10)            0*ones(1,10)  2.5*ones(1,11) ]; % Velocidad lineal (m/s)
+w = [0*ones(1,10) (-pi/2)*ones(1,10)  0*ones(1,10)  (-pi/2)*ones(1,10)    0*pi*ones(1,10)      (pi/2)*ones(1,10)       0*ones(1,10)  (pi/2)*ones(1,10)   0*ones(1,11) ]; % Velocidad angular (rad/s)
+
+% Usando el modelo cinemático inverso del robot diferencial
+w_R = (v + (w * L / 2)) / R;  % Velocidad angular rueda derecha (rad/s)
+w_L = (v - (w * L / 2)) / R;  % Velocidad angular rueda izquierda (rad/s)
+  
+%%%%%%%%%%%%%%%%%%%%%%%%% BUCLE DE SIMULACION %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+for k=1:N 
+    % Método de Euler para la orientación
+    phi(k+1)=phi(k)+w(k)*ts; 
+           
+    % Modelo Cinemático
+    xp1=v(k)*cos(phi(k)); 
+    yp1=v(k)*sin(phi(k));
+ 
+    % Método de Euler para las posiciones
+    x1(k+1)=x1(k)+ xp1*ts; 
+    y1(k+1)=y1(k)+ yp1*ts; 
+
+    % Posicion del punto de control
+    hx(k+1)=x1(k+1); 
+    hy(k+1)=y1(k+1);
+end
+
+scene=figure('Name', 'Simulación 3D PuzzleBot');  
+set(scene,'Color','white'); 
+set(gca,'FontWeight','bold') ;
+sizeScreen=get(0,'ScreenSize'); 
+set(scene,'position',sizeScreen); 
+camlight('headlight'); 
+axis equal; grid on; box on; 
+xlabel('x(m)'); ylabel('y(m)'); zlabel('z(m)'); 
+
+view([-0.1 35]); 
+axis([-10 10 -10 10 0 1]); 
+
+scale = 1; 
+try
+    MobileRobot_5;
+    H1=MobilePlot_4(x1(1),y1(1),phi(1),scale);hold on;
+catch
+    H1 = plot3(x1(1),y1(1),0,'bo','MarkerSize',10,'MarkerFaceColor','b'); hold on;
+end
+
+H2=plot3(hx(1),hy(1),0,'r','lineWidth',2);
+step=1; 
+
+for k=1:step:N
+    if ~ishandle(scene), break; end 
+    delete(H1);    
+    delete(H2);
+    
+    try
+        H1=MobilePlot_4(x1(k),y1(k),phi(k),scale);
+    catch
+        H1 = plot3(x1(k),y1(k),0,'bo','MarkerSize',10,'MarkerFaceColor','b');
+    end
+    H2=plot3(hx(1:k),hy(1:k),zeros(1,k),'r','lineWidth',2);
+    
+    pause(ts);
+end
+
+
+% 1. Trayectoria 2D
+figure('Name', '1. Trayectoria 2D', 'Color', 'white');
+plot(hx, hy, 'r', 'LineWidth', 2);
+grid on; axis equal;
+xlabel('x (m)'); ylabel('y (m)');
+title('Trayectoria del PuzzleBot (Plano XY)');
+
+% 2. Posición en el eje X
+figure('Name', '2. Posición en X', 'Color', 'white');
+plot(t, hx(1:N), 'b', 'LineWidth', 2);
+grid on; 
+xlabel('Tiempo [s]'); ylabel('Posición x (m)');
+title('Evolución de la Posición en X');
+
+% 3. Posición en el eje Y
+figure('Name', '3. Posición en Y', 'Color', 'white');
+plot(t, hy(1:N), 'g', 'LineWidth', 2);
+grid on; 
+xlabel('Tiempo [s]'); ylabel('Posición y (m)');
+title('Evolución de la Posición en Y');
+
+% 4. Orientación (Phi)
+figure('Name', '4. Orientación (Phi)', 'Color', 'white');
+plot(t, phi(1:N), 'm', 'LineWidth', 2);
+grid on; 
+xlabel('Tiempo [s]'); ylabel('Orientación \phi (rad)');
+title('Evolución de la Orientación (\phi)');
+
+% 5. Velocidad Angular Rueda Derecha
+figure('Name', '5. Vel. Rueda Derecha', 'Color', 'white');
+stairs(t, w_R, 'b', 'LineWidth', 2);
+grid on; 
+xlabel('Tiempo [s]'); ylabel('Velocidad \omega_R [rad/s]');
+title('Velocidad de la Rueda Derecha');
+
+% 6. Velocidad Angular Rueda Izquierda
+figure('Name', '6. Vel. Rueda Izquierda', 'Color', 'white');
+stairs(t, w_L, 'r', 'LineWidth', 2);
+grid on; 
+xlabel('Tiempo [s]'); ylabel('Velocidad \omega_L [rad/s]');
+title('Velocidad de la Rueda Izquierda');
+
+% 7. Velocidad Lineal de Referencia (v)
+figure('Name', '7. Velocidad Lineal (v)', 'Color', 'white');
+stairs(t, v, 'k', 'LineWidth', 2);
+grid on; 
+xlabel('Tiempo [s]'); ylabel('Velocidad v [m/s]');
+title('Velocidad Lineal de Referencia del Centroide');
+
+% 8. Velocidad Angular de Referencia (w)
+figure('Name', '8. Velocidad Angular (w)', 'Color', 'white');
+stairs(t, w, 'c', 'LineWidth', 2);
+grid on; 
+xlabel('Tiempo [s]'); ylabel('Velocidad w [rad/s]');
+title('Velocidad Angular de Referencia del Centroide');
